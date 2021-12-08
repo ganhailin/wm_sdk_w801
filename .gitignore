@@ -1,0 +1,15 @@
+/bin/
+*.o
+*.d
+/tools/w800/projects/SDK_Project/project/CDK_WS/cdkws.mk
+/tools/w800/projects/SDK_Project/project/CDK_WS/.cdk/
+/tools/w800/projects/SDK_Project/project/CDK_WS/W800_SDK/Lst/
+/tools/w800/projects/SDK_Project/project/CDK_WS/W800_SDK/Obj/
+/tools/w800/projects/SDK_Project/project/CDK_WS/W800_SDK/w800.bin
+/tools/w800/projects/SDK_Project/project/CDK_WS/W800_SDK/w800.elf
+/tools/w800/projects/SDK_Project/project/CDK_WS/W800_SDK/W800_SDK.mk
+/tools/w800/projects/SDK_Project/project/CDK_WS/W800_SDK/W800_SDK.modify.bat
+/tools/w800/projects/SDK_Project/project/CDK_WS/W800_SDK/W800_SDK.txt
+/tools/w800/w800_secboot.img
+/.idea/
+*.map
