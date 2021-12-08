@@ -4486,7 +4486,10 @@ static int wm_tool_xmodem_download(const char *image)
         wm_tool_printf("can not open image to download.\r\n");
 		return -1;
     }
-	total_size=filelength(fileno(imgfp));
+    fseek(imgfp, 0L, SEEK_END);
+    total_size = ftell(imgfp);
+    fseek(imgfp, 0L, SEEK_SET);
+//	total_size=filelength(fileno(imgfp));
 	wm_tool_printf("file size %d\r\n", total_size);
 	sndlen = 0;
 	pack_counter = 0;

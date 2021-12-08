@@ -5,7 +5,7 @@
 #define DEMO_OFF	0
 
 //demo console
-#define DEMO_CONSOLE				DEMO_OFF
+#define DEMO_CONSOLE				DEMO_ON
 
 //socket demo
 #define DEMO_STD_SOCKET_CLIENT	    (DEMO_OFF && DEMO_CONSOLE)
@@ -97,7 +97,7 @@
 
 #define DEMO_DSP					(DEMO_OFF && DEMO_CONSOLE)
 
-#define DEMO_BT                     (DEMO_OFF && DEMO_CONSOLE)
+#define DEMO_BT                     (DEMO_ON && DEMO_CONSOLE)
 
 ////////////////////////////////////////////////////////////////
 

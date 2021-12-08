@@ -1,0 +1,6 @@
+get_filename_component(libname "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
+file(GLOB_RECURSE ${libname}_src *.c)
+list(REMOVE_ITEM ${libname}_src "${CMAKE_CURRENT_SOURCE_DIR}/wm_httpclient_if.c")
+add_library(${libname} ${${libname}_src})
+include_directories(include)
+message(addedlib:${libname})

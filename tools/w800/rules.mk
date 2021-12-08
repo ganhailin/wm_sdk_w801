@@ -81,11 +81,11 @@ ifeq ($(CODE_ENCRYPT),1)
 	@cat $(FIRMWAREDIR)/$(TARGET)/$(TARGET)_enc_key.bin $(CA_PATH)/capub_$(PRIKEY_SEL)_N.dat > $(FIRMWAREDIR)/$(TARGET)/$(TARGET)_enc_key_N.bin
 	@$(WM_TOOL) -b $(FIRMWAREDIR)/$(TARGET)/$(TARGET)_enc_key_N.bin -it $(IMG_TYPE) -fc 0 -ra $(RUN_ADDRESS) -ih $(IMG_HEADER) -ua $(UPD_ADDRESS) -nh 0 -un 0 -vs $(shell $(VER_TOOL) $(TOP_DIR)/platform/sys/wm_main.c) -o $(FIRMWAREDIR)/$(TARGET)/$(TARGET)
 else
-	@$(WM_TOOL) -b $(FIRMWAREDIR)/$(TARGET)/$(TARGET).bin -fc 0 -it $(IMG_TYPE) -ih $(IMG_HEADER) -ra $(RUN_ADDRESS) -ua $(UPD_ADDRESS) -nh 0 -un 0 -vs $(shell $(VER_TOOL) $(TOP_DIR)/platform/sys/wm_main.c) -o $(FIRMWAREDIR)/$(TARGET)/$(TARGET)
+	$(WM_TOOL) -b $(FIRMWAREDIR)/$(TARGET)/$(TARGET).bin -fc 0 -it $(IMG_TYPE) -ih $(IMG_HEADER) -ra $(RUN_ADDRESS) -ua $(UPD_ADDRESS) -nh 0 -un 0 -vs $(shell $(VER_TOOL) $(TOP_DIR)/platform/sys/wm_main.c) -o $(FIRMWAREDIR)/$(TARGET)/$(TARGET)
 endif
 	@cp $(IMAGEODIR)/$(TARGET).map $(FIRMWAREDIR)/$(TARGET)/$(TARGET).map
 
-	@$(WM_TOOL) -b  $(SEC_BOOT_BIN) -fc 0 -it 0 -ih $(SECBOOT_HEADER_POS) -ra $(SECBOOT_ADDRESS_POS) -ua $(UPD_ADDRESS) -nh $(IMG_HEADER) -un 0 -o $(SEC_BOOT_IMG)
+	$(WM_TOOL) -b  $(SEC_BOOT_BIN) -fc 0 -it 0 -ih $(SECBOOT_HEADER_POS) -ra $(SECBOOT_ADDRESS_POS) -ua $(UPD_ADDRESS) -nh $(IMG_HEADER) -un 0 -o $(SEC_BOOT_IMG)
 
 ifeq ($(SIGNATURE),1)
 	@openssl dgst -sign $(CA_PATH)/cakey.pem -sha1 -out $(FIRMWAREDIR)/$(TARGET)/$(TARGET)_sign.dat $(FIRMWAREDIR)/$(TARGET)/$(TARGET).img
