@@ -217,7 +217,7 @@ static void wm_i2s_set_freq(uint32_t lr_freq, uint32_t mclk)
 	wdwidth = (((temp>>4)&0x03)+1)<<3;
 	stereo = tls_bitband_read(HR_I2S_CTRL, 22) ? 1:2;
 	stereo = 2;
-    div = (I2S_CLK + lr_freq * wdwidth * stereo)/(lr_freq * wdwidth * stereo) - 1;
+    div = (uint32_t)(((float)I2S_CLK)/((float)(lr_freq * wdwidth * stereo))+0.5f);
     
 #if FPGA_800_I2S
 	div = div/2;

@@ -18,6 +18,9 @@
 #include "wm_bt_av.h"
 #include "wm_audio_sink.h"
 #include "wm_bt_util.h"
+#include "wm_osal.h"
+#include "wm_i2s.h"
+#include "wm_gpio_afsel.h"
 
 #if (WM_AUDIO_BOARD_INCLUDED == CFG_ON)
 #include "audio.h"
@@ -27,6 +30,117 @@ static uint16_t g_sample_rate = 44100;
 static uint8_t  g_bit_width   = 16;
 static uint8_t  g_chan_count = 2;
 static uint8_t  g_playing_state = 0;
+
+#define i2sblocksize (1024*2)
+#define loopblocksize (8192)
+static uint32_t i2sdata[i2sblocksize];
+static int16_t loopbuffer[loopblocksize];
+static wm_dma_handler_type hdma_tx;
+volatile int currentaudiobuf=0;
+volatile int currentpt_r=0;
+volatile int currentpt_w=0;
+tls_os_queue_t * audiodataqueue=NULL;
+tls_os_queue_t * audiosizequeue=NULL;
+volatile int interceptpt=0;
+const int inter_c=183*2;
+static void i2sDmaSendCpltCallback(wm_dma_handler_type *hdma)
+{
+    int i=0;
+    for(;i<i2sblocksize/2;i++) {
+        *(i2sdata + i2sblocksize / 2+i) = loopbuffer[currentpt_r]*65536;
+        if(currentpt_r!=currentpt_w) {
+            currentpt_r++;
+            interceptpt++;
+            if(interceptpt==inter_c)
+            {
+                interceptpt=0;
+                currentpt_r+=2;
+            }
+            if(currentpt_r>=loopblocksize)
+                currentpt_r=0;
+        }else {
+            for (; i < i2sblocksize / 2; i++) {
+                *(i2sdata + i) = loopbuffer[currentpt_r] * 65536;
+            }
+        }
+    }
+//    printf("%d\n",currentaudiobuf);
+//    memcpy(i2sdata+i2sblocksize/2,
+//           i2sdatabuf+currentaudiobuf*i2sblocksize/2,
+//           i2sblocksize/2*4);
+}
+static void i2sDmaSendHalfCpltCallback(wm_dma_handler_type *hdma)
+{
+    int i=0;
+    for(;i<i2sblocksize/2;i++) {
+        *(i2sdata + i) = loopbuffer[currentpt_r]*65536;
+        if(currentpt_r!=currentpt_w) {
+            currentpt_r++;
+            interceptpt++;
+            if(interceptpt==inter_c)
+            {
+                interceptpt=0;
+                currentpt_r+=2;
+            }
+            if(currentpt_r>=loopblocksize)
+                currentpt_r=0;
+        }else {
+            for (; i < i2sblocksize / 2; i++) {
+                *(i2sdata + i) = loopbuffer[currentpt_r] * 65536;
+            }
+        }
+    }
+//    printf("%d\n",currentaudiobuf);
+//    memcpy(i2sdata,
+//           i2sdatabuf+currentaudiobuf*i2sblocksize/2,
+//           i2sblocksize/2*4);
+}
+
+//_Noreturn static void audio_task(void* parm){
+//    while(1){
+//        int datasize;
+//        uint16_t* datap;
+//        tls_os_queue_receive(audiosizequeue,&datasize,0,0);
+//        tls_os_queue_receive(audiodataqueue,&datap,0,0);
+//        printf("package:%d\n",datasize);
+//        int offset=(1-currentaudiobuf)*i2sblocksize/2;
+//        uint32_t *p=i2sdatabuf+offset;
+//        currentaudiobuf=!currentaudiobuf;
+//        free(datap);
+//    }
+//}
+static void audio_init()
+{
+    memset(&hdma_tx, 0, sizeof(wm_dma_handler_type));
+    memset(i2sdata, 0, sizeof(i2sdata));
+    wm_i2s_do_config(WM_IO_PB_11);
+    wm_i2s_ws_config(WM_IO_PB_09);
+    wm_i2s_ck_config(WM_IO_PB_08);
+    I2S_InitDef opts = { I2S_MODE_MASTER,
+                         I2S_CTRL_STEREO,
+                         I2S_RIGHT_CHANNEL,
+                         I2S_Standard,
+                         I2S_DataFormat_32,
+                         44100,
+                         44100*256 };
+
+    wm_i2s_port_init(&opts);
+    wm_i2s_register_callback(NULL);
+
+    hdma_tx.XferCpltCallback = i2sDmaSendCpltCallback;
+    hdma_tx.XferHalfCpltCallback = i2sDmaSendHalfCpltCallback;
+    wm_i2s_transmit_dma(&hdma_tx, (uint16_t *)i2sdata, i2sblocksize*(sizeof(uint32_t)/sizeof(uint16_t)) );
+    tls_os_queue_create(&audiodataqueue,10);
+    tls_os_queue_create(&audiosizequeue,10);
+//    tls_os_task_t audiotask;
+//    void* audiostack= malloc(1024);
+//    tls_os_task_create(&audiotask,
+//                       "audiotask",
+//                       audio_task,NULL,
+//                       (u8*)audiostack,1024,
+//                       1,0);
+}
+
 
 /**This function is the pcm output function, type is 0(PCM)*/
 #if (WM_AUDIO_BOARD_INCLUDED == CFG_ON)
@@ -74,7 +188,31 @@ int btif_co_avk_data_incoming(uint8_t type, uint8_t *p_data,uint16_t length)
 #else
 int btif_co_avk_data_incoming(uint8_t type, uint8_t *p_data,uint16_t length)
 {
-	
+    int16_t *datap=(int16_t*)p_data;
+    for(int i=0;i<length/(g_bit_width/8);i++){
+        loopbuffer[currentpt_w++]=datap[i];
+        if(currentpt_w>=loopblocksize)
+            currentpt_w=0;
+//        i2sdatabuf[currentpt++]=datap[i]*65536;
+//        if(currentpt>=i2sblocksize/2){
+//            currentaudiobuf=0;
+//            if(currentpt>=i2sblocksize)
+//            {
+//                currentpt=0;
+//            }
+//        }else
+//            currentaudiobuf=1;
+    }
+//    int offset=(1-currentaudiobuf)*i2sblocksize/2;
+//    uint32_t *p=i2sdatabuf+offset;
+//    currentaudiobuf=!currentaudiobuf;
+
+//    void* datacp= malloc(length);
+//    if(datacp){
+//        memcpy(datacp,p_data,length);
+//        tls_os_queue_send(audiodataqueue,datacp,0);
+//        tls_os_queue_send(audiosizequeue,(void*)length,0);
+//    }
 }
 #endif
 static void bta2dp_connection_state_callback(tls_btav_connection_state_t state, tls_bt_addr_t *bd_addr)
@@ -142,7 +280,7 @@ static void bta2dp_audio_config_callback(tls_bt_addr_t *bd_addr, uint32_t sample
 }
 static void bta2dp_audio_payload_callback(tls_bt_addr_t *bd_addr, uint8_t format, uint8_t *p_data, uint16_t length)
 {
-	//TLS_BT_APPL_TRACE_DEBUG("CBACK(%s): length=%d\r\n", __FUNCTION__, length);	
+	//TLS_BT_APPL_TRACE_DEBUG("CBACK(%s): length=%d\r\n", __FUNCTION__, length);
 }
 
 static void btavrcp_remote_features_callback(tls_bt_addr_t *bd_addr, tls_btrc_remote_features_t features)
@@ -274,7 +412,7 @@ tls_bt_status_t tls_bt_enable_a2dp_sink()
 	#if (WM_AUDIO_BOARD_INCLUDED == CFG_ON)
     AudioInit(12*1024);
 	#endif
-
+    audio_init();
 	return status;
 }
 
