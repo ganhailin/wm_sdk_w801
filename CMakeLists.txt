@@ -194,7 +194,7 @@ target_link_options(${output_name}.elf PUBLIC
         )
 target_link_libraries(${output_name}.elf
         ${compoment_list}
-        dsp wlan btcontroller
+        dsp wlan btcontroller_br_edr
         )
 
 add_custom_command(TARGET ${output_name}.elf
