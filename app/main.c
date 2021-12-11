@@ -16,10 +16,15 @@
 void UserMain(void)
 {
 	printf("\n user task \n");
-
+    int demo_bt_enable();
+    demo_bt_enable();
+    int get_bt_adapter_state();
+    while ((get_bt_adapter_state() == 0))tls_os_time_delay(10);
+    int demo_bt_app_on();
+    demo_bt_app_on();
 #if DEMO_CONSOLE
 	CreateDemoTask();
 #endif
-//ÓÃ»§×Ô¼ºµÄtask
+//ï¿½Ã»ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½task
 }
 

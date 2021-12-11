@@ -465,7 +465,9 @@ int tls_at_bt_cleanup_host()
 	return status;
 }
 
-
+int get_bt_adapter_state(){
+    return bt_adapter_state;
+}
 
 /*
 *bluetooth api demo 
