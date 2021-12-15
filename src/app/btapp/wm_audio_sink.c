@@ -42,7 +42,7 @@ volatile int currentpt_w=0;
 tls_os_queue_t * audiodataqueue=NULL;
 tls_os_queue_t * audiosizequeue=NULL;
 volatile int interceptpt=0;
-const int inter_c=183*2;
+const int inter_c=125001*2;
 static void i2sDmaSendCpltCallback(wm_dma_handler_type *hdma)
 {
     int i=0;
@@ -186,11 +186,154 @@ int btif_co_avk_data_incoming(uint8_t type, uint8_t *p_data,uint16_t length)
     
 }
 #else
+#define		SAMPLE_RATE			43860U
+#define     ORIGIN_RATE         44100U
+#define		SAMPLE_RATE_DIV			731U
+#define     ORIGIN_RATE_DIV         735U
+//#define     FIXPOINT
+#ifdef FIXPOINT
+#define     OFFSETBIT               2
+    #define     OFFSETFACTOR            (1<<OFFSETBIT)
+#if OFFSETBIT>15
+    #warning "sample calc will overflow!!change OFFSETBIT"
+#endif
+#if (SAMPLE_RATE_DIV*ORIGIN_RATE_DIV*SAMPLE_RATE_DIV)>0xffffffff
+    #error "index calc will overflow!!change ORIGIN_RATE_DIV and SAMPLE_RATE_DIV"
+#else
+    #if (SAMPLE_RATE_DIV*SAMPLE_RATE_DIV*ORIGIN_RATE_DIV*OFFSETFACTOR)>0x7fffffff
+        #error "offset calc will overflow!!change ORIGIN_RATE_DIV and SAMPLE_RATE_DIV and OFFSETBIT"
+    #endif
+#endif
+#endif
+
+#define	BLOCK_SIZE 4096
+
+static bool resample_ch0(int16_t datain,int16_t*dataout){
+    static uint32_t samplecount;
+    static uint32_t currentindex;
+    static int16_t x01,x05,x02;
+    static int16_t x11,x15,x12;
+    static int16_t x21,x25,x22;
+    int16_t x32=datain;
+    int16_t x31=x32/2;
+    int16_t x35=x31/2;
+
+    uint32_t index1=samplecount*SAMPLE_RATE_DIV/ORIGIN_RATE_DIV;
+#ifdef FIXPOINT
+    int32_t t=index1*ORIGIN_RATE_DIV*OFFSETFACTOR/SAMPLE_RATE_DIV+1*OFFSETFACTOR-samplecount*OFFSETFACTOR;
+#else
+    float t=(float)index1*ORIGIN_RATE_DIV/SAMPLE_RATE_DIV+1-samplecount;
+#endif
+    if(++samplecount==ORIGIN_RATE_DIV*SAMPLE_RATE_DIV)
+        samplecount=0;
+    if(index1==currentindex)
+        goto skip;
+    currentindex=index1;
+
+    int16_t c1 = x25-x05;
+    int16_t c2 = x01 -x15 -x35 +x22 -x12;
+    int16_t c3 = x35 -x05 +x11 -x21 +x15-x25;
+#ifdef FIXPOINT
+    int32_t sample=((int32_t)(((((c3*t)+c2*OFFSETFACTOR)/OFFSETFACTOR*t)+c1*OFFSETFACTOR)/OFFSETFACTOR*t)+x11*OFFSETFACTOR)/OFFSETFACTOR*2;
+#else
+    float samplef=((((((c3*t)+c2)*t)+c1)*t)+x11)*2;
+    int32_t sample=samplef;
+#endif
+    if(sample>0x7fff)
+        sample=0x7fff;
+    if(sample<-0x8000)
+        sample=-0x8000;
+    *dataout=sample;
+    x01=x11;
+    x02=x12;
+    x05=x15;
+    x11=x21;
+    x12=x22;
+    x15=x25;
+    x21=x31;
+    x22=x32;
+    x25=x35;
+    return true;
+    skip:
+    x01=x11;
+    x02=x12;
+    x05=x15;
+    x11=x21;
+    x12=x22;
+    x15=x25;
+    x21=x31;
+    x22=x32;
+    x25=x35;
+    return false;
+}
+
+static bool resample_ch1(int16_t datain,int16_t*dataout){
+    static uint32_t samplecount;
+    static uint32_t currentindex;
+    static int16_t x01,x05,x02;
+    static int16_t x11,x15,x12;
+    static int16_t x21,x25,x22;
+    int16_t x32=datain;
+    int16_t x31=x32/2;
+    int16_t x35=x31/2;
+
+    uint32_t index1=samplecount*SAMPLE_RATE_DIV/ORIGIN_RATE_DIV;
+#ifdef FIXPOINT
+    int32_t t=index1*ORIGIN_RATE_DIV*OFFSETFACTOR/SAMPLE_RATE_DIV+1*OFFSETFACTOR-samplecount*OFFSETFACTOR;
+#else
+    float t=(float)index1*ORIGIN_RATE_DIV/SAMPLE_RATE_DIV+1-samplecount;
+#endif
+    if(++samplecount==ORIGIN_RATE_DIV*SAMPLE_RATE_DIV)
+        samplecount=0;
+    if(index1==currentindex)
+        goto skip;
+    currentindex=index1;
+
+    int16_t c1 = x25-x05;
+    int16_t c2 = x01 -x15 -x35 +x22 -x12;
+    int16_t c3 = x35 -x05 +x11 -x21 +x15-x25;
+#ifdef FIXPOINT
+    int32_t sample=((int32_t)(((((c3*t)+c2*OFFSETFACTOR)/OFFSETFACTOR*t)+c1*OFFSETFACTOR)/OFFSETFACTOR*t)+x11*OFFSETFACTOR)/OFFSETFACTOR*2;
+#else
+    float samplef=((((((c3*t)+c2)*t)+c1)*t)+x11)*2;
+    int32_t sample=samplef;
+#endif
+    if(sample>0x7fff)
+        sample=0x7fff;
+    if(sample<-0x8000)
+        sample=-0x8000;
+    *dataout=sample;
+    x01=x11;
+    x02=x12;
+    x05=x15;
+    x11=x21;
+    x12=x22;
+    x15=x25;
+    x21=x31;
+    x22=x32;
+    x25=x35;
+    return true;
+    skip:
+    x01=x11;
+    x02=x12;
+    x05=x15;
+    x11=x21;
+    x12=x22;
+    x15=x25;
+    x21=x31;
+    x22=x32;
+    x25=x35;
+    return false;
+}
+
 int btif_co_avk_data_incoming(uint8_t type, uint8_t *p_data,uint16_t length)
 {
     int16_t *datap=(int16_t*)p_data;
-    for(int i=0;i<length/(g_bit_width/8);i++){
-        loopbuffer[currentpt_w++]=datap[i];
+    for(int i=0;i<length/(g_bit_width/8);i+=2){
+        currentpt_w+=resample_ch0(datap[i],&(loopbuffer[currentpt_w]));
+        if(currentpt_w>=loopblocksize)
+            currentpt_w=0;
+        currentpt_w+=resample_ch1(datap[i+1],&(loopbuffer[currentpt_w]));
         if(currentpt_w>=loopblocksize)
             currentpt_w=0;
 //        i2sdatabuf[currentpt++]=datap[i]*65536;
